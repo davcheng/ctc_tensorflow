@@ -14,7 +14,9 @@
 `python train.py`
 
 ## To freeze
-after training for a few days
+after training for a few days, call freeze.py to create a frozen graph
+`python freeze.py`
+
 I used these hyperparaemters
 ```
 num_epochs = 100
@@ -25,5 +27,3 @@ initial_learning_rate = .001
 momentum = 0.9
 ```
 (try with more than 1 layer next time, perhaps 4?)
-
-call freeze.py to create a frozen graph
