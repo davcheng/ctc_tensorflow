@@ -146,4 +146,4 @@ ENV/
 *.wav
 *.phn
 *.txt
-*tmp/
+tmp/*

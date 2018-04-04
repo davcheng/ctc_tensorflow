@@ -44,7 +44,7 @@ phone_index = {1: 'IY', 2: 'IH', 3: 'EH', 4: 'AE', 5: 'AH', 6: 'UW', 7: 'UH', 8:
 index_phone = {'AA': 8, 'W': 18, 'DH': 25, 'Y': 19, 'HH': 39, 'B': 33, 'JH': 31, 'ZH': 29, 'D': 35, 'NG': 22, 'TH': 26, 'IY': 1, 'CH': 32, 'AE': 4, 'EH': 3, 'G': 37, 'F': 24, 'AH': 5, 'K': 38, 'M': 20, 'L': 16, 'AO': 9, 'N': 21, 'IH': 2, 'S': 28, 'R': 17, 'EY': 10, 'T': 36, 'AW': 13, 'V': 23, 'AY': 11, 'Z': 27, 'ER': 15, 'P': 34, 'UW': 6, 'SH': 30, 'UH': 7, 'OY': 12, 'OW': 14}
 
 # Hyper-parameters
-num_epochs = 1 # 200 default
+num_epochs = 100 # 200 default
 num_hidden = 256 # 32 default
 num_layers = 1 # only works with one... gets a dimension error that is a product of num hidden
 batch_size = 32

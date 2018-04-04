@@ -8,8 +8,14 @@ import os
 import sys
 import numpy as np
 import re
+import scipy.io.wavfile as wav
 from phoneme_model import phoneme_dict
 
+try:
+    from python_speech_features import mfcc
+except ImportError:
+    print("Failed to import python_speech_features.\n Try pip install python_speech_features.")
+    raise ImportError
 
 # loops through folder of wavs and .txt targets
 def load_training_batch_data(input_path):
