@@ -34,26 +34,23 @@ SPACE_TOKEN = '<space>'
 SPACE_INDEX = 0
 
 # Some configs
-num_features = 13
-# num_features = 26
+# moved to conf.json, served with constants.py
+num_features = c.CTC.FEATURES
 # 39 phones + space + blank label (needed for CTC) = 41 classes
-num_classes = 41
+num_classes = c.CTC.CLASSES
+num_epochs = 100 # 200 default
+num_hidden = c.CTC.HIDDEN # 32 default
+num_layers = c.CTC.LAYERS # only works with one... gets a dimension error that is a product of num hidden
+batch_size = c.CTC.BATCH_SIZE
+initial_learning_rate = c.CTC.INITIAL_LEARNING_RATE
+momentum = c.CTC.MOMENTUM
 
 # used to translate phones into indices
 phone_index = {1: 'IY', 2: 'IH', 3: 'EH', 4: 'AE', 5: 'AH', 6: 'UW', 7: 'UH', 8: 'AA', 9: 'AO', 10: 'EY', 11: 'AY', 12: 'OY', 13: 'AW', 14: 'OW', 15: 'ER', 16: 'L', 17: 'R', 18: 'W', 19: 'Y', 20: 'M', 21: 'N', 22: 'NG', 23: 'V', 24: 'F', 25: 'DH', 26: 'TH', 27: 'Z', 28: 'S', 29: 'ZH', 30: 'SH', 31: 'JH', 32: 'CH', 33: 'B', 34: 'P', 35: 'D', 36: 'T', 37: 'G', 38: 'K', 39: 'HH',' ': ' '}
 index_phone = {'AA': 8, 'W': 18, 'DH': 25, 'Y': 19, 'HH': 39, 'B': 33, 'JH': 31, 'ZH': 29, 'D': 35, 'NG': 22, 'TH': 26, 'IY': 1, 'CH': 32, 'AE': 4, 'EH': 3, 'G': 37, 'F': 24, 'AH': 5, 'K': 38, 'M': 20, 'L': 16, 'AO': 9, 'N': 21, 'IH': 2, 'S': 28, 'R': 17, 'EY': 10, 'T': 36, 'AW': 13, 'V': 23, 'AY': 11, 'Z': 27, 'ER': 15, 'P': 34, 'UW': 6, 'SH': 30, 'UH': 7, 'OY': 12, 'OW': 14}
 
-# Hyper-parameters
-num_epochs = 100 # 200 default
-num_hidden = 256 # 32 default
-num_layers = 1 # only works with one... gets a dimension error that is a product of num hidden
-batch_size = 32
-initial_learning_rate = .001
-momentum = 0.9
-
 # used for calculating perf statistics
 num_examples = 16 # need to change this...
-# num_examples = 16 # need to change this...
 num_batches_per_epoch = int(num_examples/batch_size)
 
 # needs to be a directory of folders with inputs (.wav) and labels (.txt), with corresponding labels in the same folder as the inputs
@@ -125,7 +122,6 @@ def main(_):
                                              num_classes],
                                             stddev=0.1))
         # Zero initialization
-        # Tip: Is tf.zeros_initializer the same?
         b = tf.Variable(tf.constant(0., shape=[num_classes]))
 
         # Doing the affine projection
@@ -143,14 +139,19 @@ def main(_):
         optimizer = tf.train.MomentumOptimizer(initial_learning_rate,
                                                0.9).minimize(cost)
 
-        # Option 2: tf.nn.ctc_beam_search_decoder
-        # (it's slower but you'll get better results)
-        decoded, log_prob = ctc.ctc_beam_search_decoder(logits, seq_len)
+        # Option 1: tf.nn.ctc_greedy_decoder (faster, worse results)
+        # Extra Knowledge: greedy is a special version of beam search where: top_paths=1 and beam_width=1
         # decoded, log_prob = tf.nn.ctc_greedy_decoder(logits, seq_len)
+
+        # Option 2: tf.nn.ctc_beam_search_decoder (slower, better results)
+        decoded, log_prob = ctc.ctc_beam_search_decoder(logits, seq_len)
 
         # Inaccuracy: label error rate
         ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32),
                                               targets))
+
+        # Confusion Matrix
+        # confusion_matrix = tf.confusion_matrix(targets, predicted_indices, num_classes=label_count)
 
     with tf.Session(graph=graph) as session:
         print("lets get this session going")
@@ -192,17 +193,16 @@ def main(_):
             except:
                 session.run(tf.global_variables_initializer())
 
-        # tf.global_variables_initializer().run()
         # Load all of the training data
+        print('Loading batch data from directory: %s' % TRAINING_FILES_DIR)
         train_inputs, train_targets = load_training_batch_data(TRAINING_FILES_DIR)
         num_examples = train_targets.shape[0]
-        print(num_examples)
         num_batches_per_epoch = int(num_examples/batch_size)
-        print(num_batches_per_epoch)
 
-        print(train_inputs.shape)
-
-        for curr_epoch in range(num_epochs):
+        # Begin training loop, resume from start if loaded previous checkpoints
+        print('Begin training loop')
+        for curr_epoch in range(start, num_epochs):
+            # initialize training cost and label error rate
             train_cost = train_ler = 0
             start = time.time()
 
@@ -215,7 +215,7 @@ def main(_):
                 indexes = [i % num_examples for i in range(batch * batch_size, (batch + 1) * batch_size)]
 
                 # Create small batches out of the training data
-                batch_train_inputs = train_inputs[indexes] # this is failing with index 2 is out of bounds for axis 0
+                batch_train_inputs = train_inputs[indexes]
 
                 # Padding input to max_time_step of this batch
                 batch_train_inputs, batch_train_seq_len = pad_sequences(batch_train_inputs)
@@ -226,12 +226,6 @@ def main(_):
                 feed = {inputs: batch_train_inputs,
                         targets: batch_train_targets,
                         seq_len: batch_train_seq_len}
-                ######## END BATCH BLOCK
-
-                # feed in mfcc of wav
-                # feed = {inputs: train_inputs,
-                #         targets: train_targets,
-                #         seq_len: train_seq_len}
 
                 batch_cost, _ = session.run([cost, optimizer], feed)
                 train_cost += batch_cost*batch_size
@@ -257,6 +251,9 @@ def main(_):
             print(log.format(curr_epoch+1, num_epochs, train_cost, train_ler,
                              val_cost, val_ler, time.time() - start))
 
+            # check to make sure using default graph so that saver works
+            print('check graph')
+            print(logits.graph == tf.get_default_graph())
             if saver:
                 # saver.save(session, 'ctc_checkpoints/%s/model.ckpt', global_step=curr_epoch + 1 % str(date.today()))
                 saver.save(session, 'ctc_checkpoints/model.ckpt', global_step=curr_epoch + 1)
@@ -303,5 +300,4 @@ def main(_):
         # tf.logging.info('Saved frozen graph to %s', output_file)
 
 if __name__ == '__main__':
-    # FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main)

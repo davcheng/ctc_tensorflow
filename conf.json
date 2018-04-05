@@ -1,0 +1,11 @@
+{
+  "CTC": {
+    "FEATURES": 39,
+    "CLASSES": 41,
+    "HIDDEN": 256,
+    "LAYERS": 1,
+    "BATCH_SIZE": 32,
+    "INITIAL_LEARNING_RATE": 0.001,
+    "MOMENTUM": 0.9
+  }
+}
