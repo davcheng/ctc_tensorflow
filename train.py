@@ -28,6 +28,7 @@ from utils import preprocess_file as preprocess_file
 from utils import load_training_batch_data as load_training_batch_data
 
 from phoneme_model import phoneme_dict
+from constants import c
 
 # Constants
 SPACE_TOKEN = '<space>'
