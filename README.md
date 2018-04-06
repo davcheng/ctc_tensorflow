@@ -11,7 +11,7 @@
 - scipy
 
 ## To train
-1. Set hyperparameters in conf.json
+Set hyperparameters in conf.json
 ```
 "FEATURES": 13,
 "CLASSES": 41,
@@ -21,18 +21,20 @@
 "INITIAL_LEARNING_RATE": 0.001,
 "MOMENTUM": 0.9
 ```
-2. Run:
+Once hyperparameters are set, call:
 `python train.py`
 
 ## To freeze
-after training for a few days, call freeze.py to create a frozen graph
-`python freeze.py`
+After training for a few days, call freeze.py to create a frozen graph
+```
+python freeze.py
+```
 
 ## To run inference
 After running `freeze.py`, a frozen_graph (.pb) file will be created.
 Use label.py to run inference
 ```
-python label.py --audio_file_path="./timit_raw/DR1/FCJF0/SX307.WAV"
+python label.py --audio_file_path='./timit_raw/DR1/FCJF0/SX307.WAV' --frozen_graph_path='/PATH/TO/PB/FILE/FROM/FREEZE.PY'
 ```
 
 arguments:
@@ -40,7 +42,7 @@ arguments:
 - audio_file_path: location of audio file you want to run inference on
 
 
-3. Debug using tensorboard
+## To debug using tensorboard
 Tensorboard comes installed with tensorflow; to make use of it, point the logdir flag to the location where the FileWriter serialized its data (currently set to `./tmp/`)
 ```
 tensorboard --logdir=./tmp/
