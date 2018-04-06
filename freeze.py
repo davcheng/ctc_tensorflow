@@ -68,8 +68,6 @@ def create_inference_graph():
 
     decoded, log_prob = ctc.ctc_beam_search_decoder(logits, seq_len)
     y = tf.sparse_to_dense(decoded[0].indices, decoded[0].dense_shape, decoded[0].values)
-    # # Create an output to use for inference.
-    # tf.nn.softmax(logits, name='ctc')
 
 def freeze_graph(model_dir, output_node_names):
     # check if flags exist
@@ -86,10 +84,6 @@ def freeze_graph(model_dir, output_node_names):
     checkpoint = tf.train.get_checkpoint_state(model_dir)
     input_checkpoint = checkpoint.model_checkpoint_path
 
-    # We precise the file fullname of our freezed graph
-    absolute_model_dir = "/".join(input_checkpoint.split('/')[:-1])
-    output_graph = absolute_model_dir + "/frozen_model.pb"
-
     # We clear devices to allow TensorFlow to control on which device it will load operations
     clear_devices = True
 
@@ -101,64 +95,36 @@ def freeze_graph(model_dir, output_node_names):
         # the name is used for the graph_tuil.convert_variables_to_constants
         # tf.nn.softmax(logits, name='labels_softmax')
         create_inference_graph()
+
+        # initialize variables from the graph
         tf.global_variables_initializer().run()
 
-        # Step 3: load models fromk checkpoints
+        # Step 3: load models from checkpoints
         # speech commands does it through the following:
         # saver = tf.train.Saver(tf.global_variables())
         # saver.restore(sess, start_checkpoint)
-        # We import the meta graph in the current default Graph
+        # Import the meta graph in the current default Graph
         saver = tf.train.import_meta_graph(input_checkpoint + '.meta', clear_devices=clear_devices)
-        # We restore the weights
+        # Restore the weights
         saver.restore(sess, input_checkpoint)
 
+        print(output_node_names)
         # Turn all the variables into inline constants inside the graph and save it.
         frozen_graph_def = tf.graph_util.convert_variables_to_constants(
             sess, # The session is used to retrieve the weights
             sess.graph_def, # The graph_def is used to retrieve the nodes
-            output_node_names.split(",")
-            # output_node_names.split(",") # The output node names are used to select the usefull nodes: ex. ['labels_softmax']
+            output_node_names.split(",") # output_node_names.split(",") # The output node names are used to select the usefull nodes: ex. ['labels_softmax']
         )
+
         tf.train.write_graph(
             frozen_graph_def,
             os.path.dirname(FLAGS.model_dir),
             os.path.basename(FLAGS.output_file),
             as_text=False)
+
         tf.logging.info('Saved frozen graph to %s', FLAGS.output_file)
 
-
-        # # Finally we serialize and dump the output graph to the filesystem
-        # with tf.gfile.GFile(output_graph, "wb") as f:
-        #     f.write(output_graph_def.SerializeToString())
-        # print("%d ops in the final graph." % len(output_graph_def.node))
-
     return frozen_graph_def
-
-
-    ### BEGIN TF
-    # We clear devices to allow TensorFlow to control on which device it will load operations
-    # clear_devices = True
-    #
-    # # Create the model and load its weights.
-    # sess = tf.InteractiveSession()
-    #
-    # create_inference_graph(FLAGS.sample_rate,FLAGS.clip_duration_ms, FLAGS.clip_stride_ms,
-    #     FLAGS.window_size_ms, FLAGS.window_stride_ms,
-    #     FLAGS.dct_coefficient_count, FLAGS.model_architecture)
-    #
-    # models.load_variables_from_checkpoint(sess, FLAGS.start_checkpoint)
-    #
-    # # Turn all the variables into inline constants inside the graph and save it.
-    # frozen_graph_def = graph_util.convert_variables_to_constants(
-    #     sess, sess.graph_def, ['labels_softmax'])
-    # tf.train.write_graph(
-    #     frozen_graph_def,
-    #     os.path.dirname(FLAGS.output_file),
-    #     os.path.basename(FLAGS.output_file),
-    #     as_text=False)
-    # tf.logging.info('Saved frozen graph to %s', FLAGS.output_file)
-
-    #### END TF
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -1,6 +1,6 @@
 {
   "CTC": {
-    "FEATURES": 39,
+    "FEATURES": 13,
     "CLASSES": 41,
     "HIDDEN": 256,
     "LAYERS": 1,
