@@ -30,16 +30,11 @@ from utils import load_training_batch_data as load_training_batch_data
 from phoneme_model import phoneme_dict
 from constants import c
 
-# Constants
-SPACE_TOKEN = '<space>'
-SPACE_INDEX = 0
-
-# Some configs
+# Hyperparameters
 # moved to conf.json, served with constants.py
 num_features = c.CTC.FEATURES
 # 39 phones + space + blank label (needed for CTC) = 41 classes
 num_classes = c.CTC.CLASSES
-num_epochs = 100 # 200 default
 num_hidden = c.CTC.HIDDEN # 32 default
 num_layers = c.CTC.LAYERS # only works with one... gets a dimension error that is a product of num hidden
 batch_size = c.CTC.BATCH_SIZE
@@ -48,9 +43,9 @@ momentum = c.CTC.MOMENTUM
 
 # used to translate phones into indices
 phone_index = {1: 'IY', 2: 'IH', 3: 'EH', 4: 'AE', 5: 'AH', 6: 'UW', 7: 'UH', 8: 'AA', 9: 'AO', 10: 'EY', 11: 'AY', 12: 'OY', 13: 'AW', 14: 'OW', 15: 'ER', 16: 'L', 17: 'R', 18: 'W', 19: 'Y', 20: 'M', 21: 'N', 22: 'NG', 23: 'V', 24: 'F', 25: 'DH', 26: 'TH', 27: 'Z', 28: 'S', 29: 'ZH', 30: 'SH', 31: 'JH', 32: 'CH', 33: 'B', 34: 'P', 35: 'D', 36: 'T', 37: 'G', 38: 'K', 39: 'HH',' ': ' '}
-index_phone = {'AA': 8, 'W': 18, 'DH': 25, 'Y': 19, 'HH': 39, 'B': 33, 'JH': 31, 'ZH': 29, 'D': 35, 'NG': 22, 'TH': 26, 'IY': 1, 'CH': 32, 'AE': 4, 'EH': 3, 'G': 37, 'F': 24, 'AH': 5, 'K': 38, 'M': 20, 'L': 16, 'AO': 9, 'N': 21, 'IH': 2, 'S': 28, 'R': 17, 'EY': 10, 'T': 36, 'AW': 13, 'V': 23, 'AY': 11, 'Z': 27, 'ER': 15, 'P': 34, 'UW': 6, 'SH': 30, 'UH': 7, 'OY': 12, 'OW': 14}
 
-# used for calculating perf statistics
+# Training parameters
+num_epochs = 100
 num_examples = 16 # need to change this...
 num_batches_per_epoch = int(num_examples/batch_size)
 
@@ -84,7 +79,10 @@ def main(_):
     print('Defining graph')
     graph = tf.Graph()
     with graph.as_default():
-    ####NOTE: try variable-steps inputs and dynamic bidirectional rnn, when it's implemented in tensorflow
+
+        # BUILD MODEL
+        # TODO: replace with create_model() using models.py
+        ####NOTE: try variable-steps inputs and dynamic bidirectional rnn, when it's implemented in tensorflow
 
         # e.g: log filter bank or MFCC features
         # Has size [batch_size, max_stepsize, num_features], but the
@@ -92,10 +90,10 @@ def main(_):
         inputs = tf.placeholder(tf.float32, [None, None, num_features], name='inputs')
 
         # create SparseTensor required by ctc_loss op.
-        targets = tf.sparse_placeholder(tf.int32)
+        targets = tf.sparse_placeholder(tf.int32, name='target_data')
 
         # create 1d array of size [batch_size]
-        seq_len = tf.placeholder(tf.int32, [None])
+        seq_len = tf.placeholder(tf.int32, [None], name="seq_len")
 
         # Define the cell
         # Can be:
@@ -104,13 +102,14 @@ def main(_):
         cell = tf.contrib.rnn.LSTMCell(num_hidden, state_is_tuple=True)
 
         # Stacking rnn cells
-        stack = tf.contrib.rnn.MultiRNNCell([cell] * num_layers,
-                                            state_is_tuple=True)
+        stack = tf.contrib.rnn.MultiRNNCell([cell] * num_layers, state_is_tuple=True)
 
         # The second output is the last state and we will not use that
         outputs, _ = tf.nn.dynamic_rnn(stack, inputs, seq_len, dtype=tf.float32)
 
+        # Inputs shape
         shape = tf.shape(inputs)
+        # Get shape
         batch_s, max_timesteps = shape[0], shape[1]
 
         # Reshaping to apply the same weights over the timesteps
@@ -119,14 +118,17 @@ def main(_):
         # Truncated normal with mean 0 and stdev=0.1
         # Tip: Try another initialization
         # see https://www.tensorflow.org/versions/r0.9/api_docs/python/contrib.layers.html#initializers
-        W = tf.Variable(tf.truncated_normal([num_hidden,
-                                             num_classes],
-                                            stddev=0.1))
+        W = tf.Variable(tf.truncated_normal([num_hidden, num_classes], stddev=0.1))
         # Zero initialization
         b = tf.Variable(tf.constant(0., shape=[num_classes]))
 
+        # Add dropout for W
+        # keep_prob = tf.placeholder(tf.float32)
+        # W_drop = tf.nn.dropout(W, keep_prob)
+
         # Doing the affine projection
         logits = tf.matmul(outputs, W) + b
+        # logits = tf.matmul(outputs, W_drop) + b # Use this instead if you want to use dropout
 
         # Reshaping back to the original shape
         logits = tf.reshape(logits, [batch_s, -1, num_classes])
@@ -134,22 +136,25 @@ def main(_):
         # Time major
         logits = tf.transpose(logits, (1, 0, 2))
 
+        # ctc cost function
         loss = tf.nn.ctc_loss(targets, logits, seq_len)
         cost = tf.reduce_mean(loss)
 
-        optimizer = tf.train.MomentumOptimizer(initial_learning_rate,
-                                               0.9).minimize(cost)
+        # maybe try adam optimizer?
+        # optimizer = tf.train.AdamOptimizer(learning_rate=initial_learning_rate).minimize(cost)
+        # optimizer = tf.train.AdamOptimizer(learning_rate=initial_learning_rate)
+        optimizer = tf.train.MomentumOptimizer(initial_learning_rate, 0.9).minimize(cost)
+
+        # perhaps test out?
+        # optimizer = optimizer.apply_gradients(grads_and_vars=grads)
 
         # Option 1: tf.nn.ctc_greedy_decoder (faster, worse results)
         # Extra Knowledge: greedy is a special version of beam search where: top_paths=1 and beam_width=1
-        # decoded, log_prob = tf.nn.ctc_greedy_decoder(logits, seq_len)
-
         # Option 2: tf.nn.ctc_beam_search_decoder (slower, better results)
         decoded, log_prob = ctc.ctc_beam_search_decoder(logits, seq_len)
 
         # Inaccuracy: label error rate
-        ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32),
-                                              targets))
+        ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), targets))
 
         # Confusion Matrix
         # confusion_matrix = tf.confusion_matrix(targets, predicted_indices, num_classes=label_count)
@@ -161,9 +166,9 @@ def main(_):
         except:
             merged = tf.summary.merge_all()
         try:
-            writer = tf.summary.FileWriter("./tmp/ctc", session.graph)
+            writer = tf.summary.FileWriter("./log/ctc_20180406", session.graph)
         except:
-            writer = tf.summary.FileWriter("./tmp/ctc", session.graph)
+            writer = tf.summary.FileWriter("./log/ctc_20180406", session.graph)
         try:
             saver = tf.train.Saver()  # defaults to saving all variables
         except:
