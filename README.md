@@ -57,3 +57,4 @@ train on individual words (use master corpus?)
 - [ ] Add dropout to improve model architecture
 - [ ] Confusion matrix for phoneme performance evaluation
 - [ ] Train model with words outside of the TIMIT set
+- [ ] GPU implementation [docs](https://www.tensorflow.org/programmers_guide/using_gpu)
