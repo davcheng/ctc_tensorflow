@@ -34,7 +34,7 @@ python freeze.py
 After running `freeze.py`, a frozen_graph (.pb) file will be created.
 Use label.py to run inference
 ```
-python label.py --audio_file_path='./timit_raw/DR1/FCJF0/SX307.WAV' --frozen_graph_path='/PATH/TO/PB/FILE/FROM/FREEZE.PY'
+python label.py --audio_file_path='./timit_raw/DR1/FCJF0/SX307.WAV' --frozen_graph_path='/PATH/TO/PB/FILE'
 ```
 
 arguments:
