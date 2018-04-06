@@ -11,19 +11,37 @@
 - scipy
 
 ## To train
+1. Set hyperparameters in conf.json
+```
+"FEATURES": 13,
+"CLASSES": 41,
+"HIDDEN": 256,
+"LAYERS": 1,
+"BATCH_SIZE": 32,
+"INITIAL_LEARNING_RATE": 0.001,
+"MOMENTUM": 0.9
+```
+2. Run:
 `python train.py`
 
 ## To freeze
 after training for a few days, call freeze.py to create a frozen graph
 `python freeze.py`
 
-I used these hyperparaemters
-```
-num_epochs = 100
-num_hidden = 256
-num_layers = 1
-batch_size = 32
-initial_learning_rate = .001
-momentum = 0.9
-```
+## To run inference
+After running freeze.py, a frozen_graph file (.pb) will appear somewhere,
+use label.py with
+
+python label.py --audio_file_path="./timit_raw/DR1/FCJF0/SX307.WAV"
+
+arguments:
+--frozen_graph_path: path of .pb file outputted from freeze.py
+--audio_file_path: location of audio file you want to run inference on
+
+## TODO:
 (try with more than 1 layer next time, perhaps 4?)
+train on individual words (use master corpus?)
+freeze.py
+label.py
+dropout
+confusion matrix
