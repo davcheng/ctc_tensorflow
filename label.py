@@ -50,14 +50,15 @@ def main(_):
     graph = load_graph(FLAGS.frozen_graph_path)
 
     # Uncomment this to show list of operations in the graph (helpful for debugging)
-    # for op in graph.get_operations():
-    #     print(op.name)
+    for op in graph.get_operations():
+        print(op.name)
     # ctc/Placeholder/inputs_placeholder...
 
     # Gather MFCC data
     wav_input, seq_len_input = convert_wav_to_mfcc_inputs(FLAGS.audio_file_path)
 
-    y = graph.get_tensor_by_name('ctc/CTCBeamSearchDecoder:0')
+    # y = graph.get_tensor_by_name('ctc/CTCBeamSearchDecoder:0')
+    y = graph.get_tensor_by_name('ctc/SparseToDense:0')
 
     # Launch a Session
     with tf.Session(graph=graph) as sess:
@@ -73,7 +74,7 @@ def main(_):
 
         str_coded = []
         str_decoded = []
-        for x in np.asarray(labels[1]):
+        for x in np.asarray(labels[0]):
             if x > 0:
                 str_coded.append(x)
             elif x == 0:
@@ -84,18 +85,19 @@ def main(_):
 
         print('Decoded:\n%s' % str_decoded)
 
-        str_coded_2 = []
-        str_decoded_2 = []
-        for x in np.asarray(labels[2]):
-            if x > 0:
-                str_coded_2.append(x)
-            elif x == 0:
-                str_coded_2.append(' ')
+        # str_coded_2 = []
+        # str_decoded_2 = []
+        # for x in np.asarray(labels[0]):
+        #     if x > 0:
+        #         str_coded_2.append(x)
+        #     elif x == 0:
+        #         str_coded_2.append(' ')
+        #
+        # for x in str_coded_2:
+        #     str_decoded_2.append(phone_index[x])
+        #
+        # print('Decoded:\n%s' % str_decoded_2)
 
-        for x in str_coded_2:
-            str_decoded_2.append(phone_index[x])
-
-        print('Decoded:\n%s' % str_decoded_2)
 
 if __name__ == '__main__':
     # Allow user to pass in frozen filename as an argument
