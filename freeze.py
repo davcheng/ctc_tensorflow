@@ -1,4 +1,10 @@
-import os, argparse
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import argparse
+import os.path
+import sys
 
 import tensorflow as tf
 from tensorflow.python.ops import ctc_ops as ctc
@@ -71,16 +77,27 @@ def create_inference_graph():
     decoded, _ = ctc.ctc_beam_search_decoder(logits, seq_len)
 
     # Create sparse tensor (not sure why right now...)
+    # y = decoded[0]
     y = tf.sparse_to_dense(decoded[0].indices, decoded[0].dense_shape, decoded[0].values)
 
+
+def load_variables_from_checkpoint(sess, start_checkpoint):
+    """Utility function to centralize checkpoint restoration.
+    Args:
+    sess: TensorFlow session.
+    start_checkpoint: Path to saved checkpoint on disk.
+    """
+    saver = tf.train.Saver(tf.global_variables())
+    saver.restore(sess, start_checkpoint)
+
 # Freeze
-def freeze_graph(model_dir, output_node_names):
+def main(_):
     # check if flags exist
-    if not tf.gfile.Exists(model_dir):
+    if not tf.gfile.Exists(FLAGS.model_dir):
         raise AssertionError(
             "Export directory doesn't exists. Please specify an export "
-            "directory: %s" % model_dir)
-    if not output_node_names:
+            "directory: %s" % FLAGS.model_dir)
+    if not FLAGS.output_node_names:
         print("You need to supply the name of a node to --output_node_names.")
         return -1
 
@@ -88,14 +105,10 @@ def freeze_graph(model_dir, output_node_names):
     # Load previously saved meta graph in the default graph and retrieve its graph_def
     # This is the ProtoBuf definition of our graph
 
-    # Retrieve checkpoint path
-    print('Loading model dir from directory: %s' % str(model_dir))
-    checkpoint = tf.train.get_checkpoint_state(model_dir)
-    input_checkpoint = checkpoint.model_checkpoint_path
-    print('Input Checkpoint: %s' % str(input_checkpoint))
+
 
     # We clear devices to allow TensorFlow to control on which device it will load operations
-    clear_devices = True
+    # clear_devices = True
 
     # Step 2: Create Session
     # We start a session using a temporary fresh Graph
@@ -107,33 +120,40 @@ def freeze_graph(model_dir, output_node_names):
         # tf.nn.softmax(logits, name='labels_softmax')
         create_inference_graph()
         # initialize variables from the graph
-        tf.global_variables_initializer().run()
+        # tf.global_variables_initializer().run()
+
+        # Retrieve checkpoint path
+        print('Loading model dir from directory: %s' % str(FLAGS.model_dir))
+        checkpoint = tf.train.get_checkpoint_state(FLAGS.model_dir)
+        input_checkpoint = checkpoint.model_checkpoint_path
+        print('Input Checkpoint: %s' % str(input_checkpoint))
+        load_variables_from_checkpoint(sess, input_checkpoint)
 
         # Step 3: load models from checkpoints
         # speech commands does it through the following:
         # saver = tf.train.Saver(tf.global_variables())
         # saver.restore(sess, start_checkpoint)
         # Import the meta graph in the current default Graph
-        saver = tf.train.import_meta_graph(input_checkpoint + '.meta', clear_devices=clear_devices)
+        # saver = tf.train.import_meta_graph(input_checkpoint + '.meta', clear_devices=clear_devices)
         # Restore the weights
-        saver.restore(sess, input_checkpoint)
+        # saver.restore(sess, input_checkpoint)
+        # saver.restore(sess, tf.train.latest_checkpoint(model_dir))
 
-        print('output_nodes: %s' % str(output_node_names))
-
+        print('output_nodes: %s' % str(FLAGS.output_node_names))
         # Turn all the variables into inline constants inside the graph and save it.
         frozen_graph_def = tf.graph_util.convert_variables_to_constants(
             sess, # The session is used to retrieve the weights
             sess.graph_def, # The graph_def is used to retrieve the nodes
-            output_node_names.split(",") # output_node_names.split(",") # The output node names are used to select the usefull nodes: ex. ['labels_softmax']
+            FLAGS.output_node_names.split(",") # output_node_names.split(",") # The output node names are used to select the usefull nodes: ex. ['labels_softmax']
         )
 
         # Not sure if this should be done before frozen graph?
         tf.train.write_graph(
             frozen_graph_def,
+            # sess.graph_def,
             os.path.dirname(FLAGS.model_dir),
             os.path.basename(FLAGS.output_file),
             as_text=False)
-
 
         tf.logging.info('Saved frozen graph to %s', FLAGS.output_file)
 
@@ -158,6 +178,5 @@ if __name__ == '__main__':
         default="frozen_graph_20180405.pb",
         help="The name of the output nodes, comma separated.")
     FLAGS, unparsed = parser.parse_known_args()
-
-    freeze_graph(FLAGS.model_dir, FLAGS.output_node_names)
-    # tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+    tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+    # freeze_graph(FLAGS.model_dir, FLAGS.output_node_names)
