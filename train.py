@@ -45,7 +45,7 @@ momentum = c.CTC.MOMENTUM
 phone_index = {1: 'IY', 2: 'IH', 3: 'EH', 4: 'AE', 5: 'AH', 6: 'UW', 7: 'UH', 8: 'AA', 9: 'AO', 10: 'EY', 11: 'AY', 12: 'OY', 13: 'AW', 14: 'OW', 15: 'ER', 16: 'L', 17: 'R', 18: 'W', 19: 'Y', 20: 'M', 21: 'N', 22: 'NG', 23: 'V', 24: 'F', 25: 'DH', 26: 'TH', 27: 'Z', 28: 'S', 29: 'ZH', 30: 'SH', 31: 'JH', 32: 'CH', 33: 'B', 34: 'P', 35: 'D', 36: 'T', 37: 'G', 38: 'K', 39: 'HH',' ': ' '}
 
 # Training parameters
-num_epochs = 100
+num_epochs = 200
 num_examples = 16 # need to change this...
 num_batches_per_epoch = int(num_examples/batch_size)
 
@@ -140,6 +140,13 @@ def main(_):
         loss = tf.nn.ctc_loss(targets, logits, seq_len)
         cost = tf.reduce_mean(loss)
 
+        # # Gradient clipping
+        # tvars = tf.trainable_variables()
+        # grads = tf.gradients(cost, tvars)
+        # grad_norm = tf.global_norm(grads, name='grads')
+        # grads, _ = tf.clip_by_global_norm(grads, 2, use_norm=grad_norm)
+        # grads = list(zip(grads, tvars))
+
         # maybe try adam optimizer?
         # optimizer = tf.train.AdamOptimizer(learning_rate=initial_learning_rate).minimize(cost)
         # optimizer = tf.train.AdamOptimizer(learning_rate=initial_learning_rate)
@@ -155,6 +162,24 @@ def main(_):
 
         # Inaccuracy: label error rate
         ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), targets))
+
+        # not sure if this is needed here??
+        # Save model
+        # saver = tf.train.Saver()
+
+        # used for tensorboard
+        # Create a summary to monitor cost tensor
+        summary_loss = tf.summary.scalar("loss", cost)
+        # Create a summary to monitor accuracy tensor
+        #summary_ler = tf.summary.scalar("ler", ler)
+
+        # Create summaries to visualize weights
+        #for var in tf.trainable_variables():
+        #    tf.summary.histogram(var.name, var)
+        # # Summarize all gradients
+        # summary_grad = tf.summary.scalar("grad", grad_norm)
+        # Merge all summaries into a single op
+        merged_summary_op = tf.summary.merge_all()
 
         # Confusion Matrix
         # confusion_matrix = tf.confusion_matrix(targets, predicted_indices, num_classes=label_count)

@@ -65,13 +65,18 @@ def main(_):
 
         start = time.time()
 
+        # Feed in input data as a feed dictionary
         feed_dict = {'ctc/input_data:0':wav_input,
                      'ctc/seq_len:0': seq_len_input}
 
+        # Run inference: Results in encoded output
         labels = sess.run(y, feed_dict=feed_dict)
+        print(labels)
 
+        # Time for inference
         print('Time %s' % str(time.time()-start))
 
+        # Decode the output from an array of numbers to phonemes
         str_coded = []
         str_decoded = []
         for x in np.asarray(labels[0]):
@@ -84,19 +89,6 @@ def main(_):
             str_decoded.append(phone_index[x])
 
         print('Decoded:\n%s' % str_decoded)
-
-        # str_coded_2 = []
-        # str_decoded_2 = []
-        # for x in np.asarray(labels[0]):
-        #     if x > 0:
-        #         str_coded_2.append(x)
-        #     elif x == 0:
-        #         str_coded_2.append(' ')
-        #
-        # for x in str_coded_2:
-        #     str_decoded_2.append(phone_index[x])
-        #
-        # print('Decoded:\n%s' % str_decoded_2)
 
 
 if __name__ == '__main__':

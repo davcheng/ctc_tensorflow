@@ -90,7 +90,7 @@ def load_variables_from_checkpoint(sess, start_checkpoint):
     saver = tf.train.Saver(tf.global_variables())
     saver.restore(sess, start_checkpoint)
 
-# Freeze
+
 def main(_):
     # check if flags exist
     if not tf.gfile.Exists(FLAGS.model_dir):
@@ -101,53 +101,32 @@ def main(_):
         print("You need to supply the name of a node to --output_node_names.")
         return -1
 
-    # Step 1: Retrieve our saved graph
-    # Load previously saved meta graph in the default graph and retrieve its graph_def
-    # This is the ProtoBuf definition of our graph
-
-
-
-    # We clear devices to allow TensorFlow to control on which device it will load operations
-    # clear_devices = True
-
-    # Step 2: Create Session
-    # We start a session using a temporary fresh Graph
+    # Create tensorflow session to load and freeze the graph
     with tf.Session(graph=tf.Graph()) as sess:
-    # with tf.Session() as sess:
 
-        # Step 2: create inference graph (create an output to use for inference)
+        # Create inference graph (create an output to use for inference)
         # the name is used for the graph_util.convert_variables_to_constants
         # tf.nn.softmax(logits, name='labels_softmax')
         create_inference_graph()
-        # initialize variables from the graph
-        # tf.global_variables_initializer().run()
 
-        # Retrieve checkpoint path
+        # Automatically retrieve checkpoint path from given directory
+        # Note: Can abstract this out and specify checkpoint if needed
         print('Loading model dir from directory: %s' % str(FLAGS.model_dir))
         checkpoint = tf.train.get_checkpoint_state(FLAGS.model_dir)
         input_checkpoint = checkpoint.model_checkpoint_path
         print('Input Checkpoint: %s' % str(input_checkpoint))
         load_variables_from_checkpoint(sess, input_checkpoint)
 
-        # Step 3: load models from checkpoints
-        # speech commands does it through the following:
-        # saver = tf.train.Saver(tf.global_variables())
-        # saver.restore(sess, start_checkpoint)
-        # Import the meta graph in the current default Graph
-        # saver = tf.train.import_meta_graph(input_checkpoint + '.meta', clear_devices=clear_devices)
-        # Restore the weights
-        # saver.restore(sess, input_checkpoint)
-        # saver.restore(sess, tf.train.latest_checkpoint(model_dir))
-
-        print('output_nodes: %s' % str(FLAGS.output_node_names))
         # Turn all the variables into inline constants inside the graph and save it.
+        # Note: There are many nodes, but only the output node really matters (because thats what the inference goes through)
+        print('output_nodes: %s' % str(FLAGS.output_node_names))
         frozen_graph_def = tf.graph_util.convert_variables_to_constants(
             sess, # The session is used to retrieve the weights
             sess.graph_def, # The graph_def is used to retrieve the nodes
             FLAGS.output_node_names.split(",") # output_node_names.split(",") # The output node names are used to select the usefull nodes: ex. ['labels_softmax']
         )
 
-        # Not sure if this should be done before frozen graph?
+        # Write the graph to the specified output_file path
         tf.train.write_graph(
             frozen_graph_def,
             # sess.graph_def,
@@ -155,9 +134,9 @@ def main(_):
             os.path.basename(FLAGS.output_file),
             as_text=False)
 
+        # Log
         tf.logging.info('Saved frozen graph to %s', FLAGS.output_file)
 
-    return frozen_graph_def
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -179,4 +158,3 @@ if __name__ == '__main__':
         help="The name of the output nodes, comma separated.")
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
-    # freeze_graph(FLAGS.model_dir, FLAGS.output_node_names)
