@@ -45,16 +45,18 @@ arguments:
 ## To debug using tensorboard
 Tensorboard comes installed with tensorflow; to make use of it, point the logdir flag to the location where the FileWriter serialized its data (currently set to `./tmp/`)
 ```
-tensorboard --logdir=./tmp/
+tensorboard --logdir=./log/ctc
 ```
 
 ## TODO:
 (try with more than 1 layer next time, perhaps 4?)
 train on individual words (use master corpus?)
-- [X] Write freeze.py
-- [X] Write label.py
+- [X] Complete freeze.py
+- [X] Complete  label.py
+- [ ] Make train use batches for testing [see ex] (https://github.com/philipperemy/tensorflow-ctc-speech-recognition/blob/master/ctc_tensorflow_example.py)
 - [ ] Refactor out model into models.py
-- [ ] Add dropout to improve model architecture
+- [ ] Accomodate more than 1 layer
+- [X] Add dropout to improve model architecture
 - [ ] Confusion matrix for phoneme performance evaluation
 - [ ] Train model with words outside of the TIMIT set
 - [ ] GPU implementation [(see docs)](https://www.tensorflow.org/programmers_guide/using_gpu)
