@@ -66,6 +66,20 @@ tensorboard --logdir=./log/ctc
   ['IY', 'V', 'IH', 'N', ' ', 'DH', 'AE', 'N', ' ', 'IH', 'F', ' ', 'Y', 'IY', ' ', 'T', 'UW', ' ', 'W', 'AH', 'N', 'S', 'T', 'EH', 'P', ' ', 'F', 'AO', ' ', 'HH', 'IY', ' ', 'K', 'UH', ' ', 'K', 'AE', 'CH', ' ', 'ER']
   Note: Could sounds like "Cou" in the audio, which is positive since the detection only caught the "K UH"
 
+- After 38 hours of training on the TIMIT and appspot word data, using AdamOptimizer, no gradient clipping,  dropout, and the same hyperparameters as above:
+
+  Epoch 140/200, train_cost = 22.661, train_ler = 0.165, val_cost = 32.507, val_ler = 0.250, time = 1000.521
+  check graph
+  True
+  saved to ctc_checkpoints/model for epoch: 139
+  Original:
+  even then, if she took one step forward he could catch her
+  Decoded:
+  ['IY', 'V', 'IH', 'N', ' ', 'EH', 'N', 'D', ' ', 'IH', 'F', ' ', 'IY', ' ', 'T', 'UW', 'K', ' ', 'K', 'W', 'AH', 'N', 'S', 'T', 'EH', 'P', 'F', 'AO', 'L', 'IH', ' ', 'HH', 'IY', ' ', 'K', 'UH', 'D', ' ', 'K', 'AE', 'CH', ' ', 'ER']
+
+Note: seems to be overfit
+
+
 
 
 ## TODO:
@@ -74,9 +88,9 @@ train on individual words (use master corpus?)
 - [X] Complete freeze.py
 - [X] Complete  label.py
 - [ ] Make train use batches for testing [see ex] (https://github.com/philipperemy/tensorflow-ctc-speech-recognition/blob/master/ctc_tensorflow_example.py)
-- [ ] Refactor out model into models.py
+- [X] Refactor out model into models.py
 - [ ] Accomodate more than 1 layer
-- [X] Add dropout to improve model architecture
+- [ ] Add dropout to improve model architecture
 - [ ] Confusion matrix for phoneme performance evaluation
 - [ ] Train model with words outside of the TIMIT set
 - [ ] GPU implementation [(see docs)](https://www.tensorflow.org/programmers_guide/using_gpu)

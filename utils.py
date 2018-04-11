@@ -19,6 +19,11 @@ except ImportError:
 
 # loops through folder of wavs and .txt targets
 def load_batch_data(input_path):
+    """
+    Loops through folder of wavs to load batch data
+    """
+
+
     import os
     import re
     batch_train_inputs = []
@@ -93,7 +98,7 @@ def sparse_tuple_from(sequences, dtype=np.int32):
 
 def pad_sequences(sequences, maxlen=None, dtype=np.float32,
                   padding='post', truncating='post', value=0.):
-    '''Pads each sequence to the same length: the length of the longest
+    """Pads each sequence to the same length: the length of the longest
     sequence.
         If maxlen is provided, any sequence longer than maxlen is truncated to
         maxlen. Truncation happens off either the beginning or the end
@@ -111,7 +116,7 @@ def pad_sequences(sequences, maxlen=None, dtype=np.float32,
         Returns
             x: numpy array with dimensions (number_of_sequences, maxlen)
             lengths: numpy array with the original sequence lengths
-    '''
+    """
     lengths = np.asarray([len(s) for s in sequences], dtype=np.int64)
 
     nb_samples = len(sequences)

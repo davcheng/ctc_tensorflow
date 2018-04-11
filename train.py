@@ -56,6 +56,8 @@ num_batches_per_epoch = int(num_examples/batch_size)
 TRAIN_FILES_DIR = './timit_raw'
 TEST_FILES_DIR = './timit_raw'
 
+MODEL_ARCHITECTURE = 'bdlstm'
+
 #########
 # PREPARE TEST DATA
 print('loading test data')
@@ -87,60 +89,24 @@ def main(_):
         # TODO: replace with create_model() using models.py
         ####NOTE: try variable-steps inputs and dynamic bidirectional rnn, when it's implemented in tensorflow
 
-        # logits, dropout_prob = models.create_model('ctc', is_training=True)
 
-        # e.g: log filter bank or MFCC features
         # Has size [batch_size, max_stepsize, num_features], but the
         # batch_size and max_stepsize can vary along each step
         inputs = tf.placeholder(tf.float32, [None, None, num_features], name='inputs')
-
         # create SparseTensor required by ctc_loss op.
         targets = tf.sparse_placeholder(tf.int32, name='target_data')
-
         # create 1d array of size [batch_size]
         seq_len = tf.placeholder(tf.int32, [None], name="seq_len")
+        # passing in model inputs
+        model_inputs = inputs, targets, seq_len
 
-        # Define the cell
-        # Can be:
-        #   tf.nn.rnn_cell.RNNCell
-        #   tf.nn.rnn_cell.GRUCell
-        cell = tf.contrib.rnn.LSTMCell(num_hidden, state_is_tuple=True)
+        # Create the model
+        # Abstracted Model architecture to models.py
+        # options are 'ctc'
+        # logits, dropout_prob = models.create_model(model_architecture='ctc', model_inputs=model_inputs, is_training=True)
+        logits, dropout_prob = models.create_model(model_architecture=MODEL_ARCHITECTURE, model_inputs=model_inputs, is_training=True)
 
-        # Stacking rnn cells
-        stack = tf.contrib.rnn.MultiRNNCell([cell] * num_layers, state_is_tuple=True)
-
-        # The second output is the last state and we will not use that
-        outputs, _ = tf.nn.dynamic_rnn(stack, inputs, seq_len, dtype=tf.float32)
-
-        # Inputs shape
-        shape = tf.shape(inputs)
-        # Get shape
-        batch_s, max_timesteps = shape[0], shape[1]
-
-        # Reshaping to apply the same weights over the timesteps
-        outputs = tf.reshape(outputs, [-1, num_hidden])
-
-        # Truncated normal with mean 0 and stdev=0.1
-        # Tip: Try another initialization
-        # see https://www.tensorflow.org/versions/r0.9/api_docs/python/contrib.layers.html#initializers
-        W = tf.Variable(tf.truncated_normal([num_hidden, num_classes], stddev=0.1))
-        # Zero initialization
-        b = tf.Variable(tf.constant(0., shape=[num_classes]))
-
-        # Add dropout for W
-        keep_prob = tf.placeholder(tf.float32)
-        dropout_prob = tf.nn.dropout(W, keep_prob)
-
-        # Doing the affine projection
-        logits = tf.matmul(outputs, W) + b
-        # logits = tf.matmul(outputs, W_drop) + b # Use this instead if you want to use dropout
-
-        # Reshaping back to the original shape
-        logits = tf.reshape(logits, [batch_s, -1, num_classes])
-
-        # Time major
-        logits = tf.transpose(logits, (1, 0, 2))
-
+        # Define loss and optimizer
         # ctc cost function
         loss = tf.nn.ctc_loss(targets, logits, seq_len)
         cost = tf.reduce_mean(loss)
@@ -152,9 +118,8 @@ def main(_):
         # grads, _ = tf.clip_by_global_norm(grads, 2, use_norm=grad_norm)
         # grads = list(zip(grads, tvars))
 
-        # maybe try adam optimizer?
+        # Adam optimizer converges on solution faster than Momentum but is slower to train for each step
         optimizer = tf.train.AdamOptimizer(learning_rate=initial_learning_rate).minimize(cost)
-        # optimizer = tf.train.AdamOptimizer(learning_rate=initial_learning_rate)
         # optimizer = tf.train.MomentumOptimizer(initial_learning_rate, 0.9).minimize(cost)
 
         # perhaps test out?
@@ -168,9 +133,6 @@ def main(_):
         # Inaccuracy: label error rate
         ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), targets))
 
-        # not sure if this is needed here??
-        # Save model
-        # saver = tf.train.Saver()
 
         # used for tensorboard
         # Create a summary to monitor cost tensor
@@ -181,6 +143,7 @@ def main(_):
         # Create summaries to visualize weights
         for var in tf.trainable_variables():
            tf.summary.histogram(var.name, var)
+
         # Summarize all gradients
         # summary_grad = tf.summary.scalar("gradient", grad_norm)
         # Merge all summaries into a single op
@@ -239,6 +202,7 @@ def main(_):
 
         # Begin training loop, resume from start if loaded previous checkpoints
         print('Begin training loop')
+        tf.logging.info('Training from step: %d ' % start)
         for curr_epoch in range(start, num_epochs):
             # initialize training cost and label error rate
             train_cost = train_ler = 0
@@ -246,9 +210,6 @@ def main(_):
 
             for batch in range(num_batches_per_epoch):
 
-                # TODO: get an array of train_inputs, train_targets, and train_seq_len
-                ### BATCH BLOCK
-                # # Getting the index
                 # indexes represent indices chosen per batch; if batch size=3, [0,1,2], [3,4,5]
                 indexes = [i % num_examples for i in range(batch * batch_size, (batch + 1) * batch_size)]
 
@@ -304,7 +265,7 @@ def main(_):
             if saver:
                 # saver.save(session, 'ctc_checkpoints/%s/model.ckpt', global_step=curr_epoch + 1 % str(date.today()))
                 saver.save(session, 'ctc_checkpoints/model.ckpt', global_step=curr_epoch + 1)
-                print('saved to ctc_checkpoints/model for epoch: %i' % curr_epoch)
+                tf.logging.info('saved to ctc_checkpoints/model for epoch: %i' % curr_epoch)
 
             # Decoding
             # decoded is a tf variable
@@ -332,8 +293,8 @@ def main(_):
                 # this strips the first two numbers and only gives the tokens in the sentence, resulting in:
                 # she had your dark suit in greasy wash water all year
                 original = ' '.join(line.strip().lower().split(' ')[2:]).replace('.', '')
-            print('Original:\n%s' % original)
 
+            print('Original:\n%s' % original)
             print('Decoded:\n%s' % str_decoded)
 
         # # Turn all the variables into inline constants inside the graph and save it.
