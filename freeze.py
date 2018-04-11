@@ -15,7 +15,6 @@ from constants import c
 # https://blog.metaflow.fr/tensorflow-how-to-freeze-a-model-and-serve-it-with-a-python-api-d4f3596b3adc
 # https://stackoverflow.com/questions/38641887/how-to-save-a-trained-tensorflow-model-for-later-use-for-application
 # https://stackoverflow.com/questions/46577833/using-bi-lstm-ctc-tensorflow-model-in-android
-# https://omid.al/posts/2017-02-20-Tutorial-Build-Your-First-Tensorflow-Android-App.html
 
 # promising
 # https://github.com/chiachunfu/speech/blob/master/export_lstm_pb.py

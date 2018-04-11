@@ -25,10 +25,12 @@ from tensorflow.python.ops import ctc_ops as ctc
 from utils import sparse_tuple_from as sparse_tuple_from
 from utils import pad_sequences as pad_sequences
 from utils import preprocess_file as preprocess_file
-from utils import load_training_batch_data as load_training_batch_data
+from utils import load_batch_data as load_batch_data
 
 from phoneme_model import phoneme_dict
 from constants import c
+import models
+
 
 # Hyperparameters
 # moved to conf.json, served with constants.py
@@ -46,12 +48,13 @@ phone_index = {1: 'IY', 2: 'IH', 3: 'EH', 4: 'AE', 5: 'AH', 6: 'UW', 7: 'UH', 8:
 
 # Training parameters
 num_epochs = 200
-num_examples = 16 # need to change this...
+num_examples = 32 # need to change this...
 num_batches_per_epoch = int(num_examples/batch_size)
 
 # needs to be a directory of folders with inputs (.wav) and labels (.txt), with corresponding labels in the same folder as the inputs
 # note, remember to strip excess headers from TIMIT wavs using directory_audio_converter.sh
-TRAINING_FILES_DIR = './timit_raw'
+TRAIN_FILES_DIR = './timit_raw'
+TEST_FILES_DIR = './timit_raw'
 
 #########
 # PREPARE TEST DATA
@@ -64,10 +67,10 @@ test_inputs = mfcc(test_audio, samplerate=test_fs)
 # inputs = mfcc(audio, samplerate=fs, numcep=26) # make 26 features in filterbank
 # Tranform in 3D array
 test_inputs = np.asarray(test_inputs[np.newaxis, :])
-test_inputs = (test_inputs - np.mean(test_inputs))/np.std(test_inputs)
-test_seq_len = [test_inputs.shape[1]]
+batch_test_inputs = (test_inputs - np.mean(test_inputs))/np.std(test_inputs)
+batch_test_seq_len = [test_inputs.shape[1]]
 test_targets = preprocess_file(test_target_filename)
-test_targets = sparse_tuple_from([test_targets])
+batch_test_targets = sparse_tuple_from([test_targets])
 # end test data
 ######################
 
@@ -83,6 +86,8 @@ def main(_):
         # BUILD MODEL
         # TODO: replace with create_model() using models.py
         ####NOTE: try variable-steps inputs and dynamic bidirectional rnn, when it's implemented in tensorflow
+
+        # logits, dropout_prob = models.create_model('ctc', is_training=True)
 
         # e.g: log filter bank or MFCC features
         # Has size [batch_size, max_stepsize, num_features], but the
@@ -123,8 +128,8 @@ def main(_):
         b = tf.Variable(tf.constant(0., shape=[num_classes]))
 
         # Add dropout for W
-        # keep_prob = tf.placeholder(tf.float32)
-        # W_drop = tf.nn.dropout(W, keep_prob)
+        keep_prob = tf.placeholder(tf.float32)
+        dropout_prob = tf.nn.dropout(W, keep_prob)
 
         # Doing the affine projection
         logits = tf.matmul(outputs, W) + b
@@ -148,9 +153,9 @@ def main(_):
         # grads = list(zip(grads, tvars))
 
         # maybe try adam optimizer?
-        # optimizer = tf.train.AdamOptimizer(learning_rate=initial_learning_rate).minimize(cost)
+        optimizer = tf.train.AdamOptimizer(learning_rate=initial_learning_rate).minimize(cost)
         # optimizer = tf.train.AdamOptimizer(learning_rate=initial_learning_rate)
-        optimizer = tf.train.MomentumOptimizer(initial_learning_rate, 0.9).minimize(cost)
+        # optimizer = tf.train.MomentumOptimizer(initial_learning_rate, 0.9).minimize(cost)
 
         # perhaps test out?
         # optimizer = optimizer.apply_gradients(grads_and_vars=grads)
@@ -171,13 +176,13 @@ def main(_):
         # Create a summary to monitor cost tensor
         summary_loss = tf.summary.scalar("loss", cost)
         # Create a summary to monitor accuracy tensor
-        #summary_ler = tf.summary.scalar("ler", ler)
+        summary_ler = tf.summary.scalar("ler", ler)
 
         # Create summaries to visualize weights
-        #for var in tf.trainable_variables():
-        #    tf.summary.histogram(var.name, var)
-        # # Summarize all gradients
-        # summary_grad = tf.summary.scalar("grad", grad_norm)
+        for var in tf.trainable_variables():
+           tf.summary.histogram(var.name, var)
+        # Summarize all gradients
+        # summary_grad = tf.summary.scalar("gradient", grad_norm)
         # Merge all summaries into a single op
         merged_summary_op = tf.summary.merge_all()
 
@@ -225,9 +230,11 @@ def main(_):
                 session.run(tf.global_variables_initializer())
 
         # Load all of the training data
-        print('Loading batch data from directory: %s' % TRAINING_FILES_DIR)
-        train_inputs, train_targets = load_training_batch_data(TRAINING_FILES_DIR)
+        print('Loading batch data from directory: %s' % TRAIN_FILES_DIR)
+        train_inputs, train_targets = load_batch_data(TRAIN_FILES_DIR)
+        print('Finished loading batch data')
         num_examples = train_targets.shape[0]
+        print('Loaded %s samples' % str(num_examples))
         num_batches_per_epoch = int(num_examples/batch_size)
 
         # Begin training loop, resume from start if loaded previous checkpoints
@@ -271,10 +278,19 @@ def main(_):
             train_cost /= num_examples
             train_ler /= num_examples
 
+            # Load validation data (in batches)
+            # test_inputs, test_targets = load_batch_data(TEST_FILES_DIR)
+            # # Create small batches out of the training data
+            # batch_test_inputs = test_inputs[indexes]
+            # # Padding input to max_time_step of this batch
+            # batch_test_inputs, batch_test_seq_len = pad_sequences(batch_test_inputs)
+            # # Converting to sparse representation so as to to feed SparseTensor input
+            # batch_test_targets = sparse_tuple_from(test_targets[indexes])
+
             # validation data
-            val_feed = {inputs: test_inputs,
-                        targets: test_targets,
-                        seq_len: test_seq_len}
+            val_feed = {inputs: batch_test_inputs,
+                        targets: batch_test_targets,
+                        seq_len: batch_test_seq_len}
 
             val_cost, val_ler = session.run([cost, ler], feed_dict=val_feed)
 
@@ -316,8 +332,6 @@ def main(_):
                 # this strips the first two numbers and only gives the tokens in the sentence, resulting in:
                 # she had your dark suit in greasy wash water all year
                 original = ' '.join(line.strip().lower().split(' ')[2:]).replace('.', '')
-
-
             print('Original:\n%s' % original)
 
             print('Decoded:\n%s' % str_decoded)
