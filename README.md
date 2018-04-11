@@ -48,6 +48,15 @@ Tensorboard comes installed with tensorflow; to make use of it, point the logdir
 tensorboard --logdir=./log/ctc
 ```
 
+## Training Notes
+- after 30 hours of training on the TIMIT and appspot word data, speech recognition:
+Epoch 111/200, train_cost = 27.383, train_ler = 0.204, val_cost = 38.645, val_ler = 0.229, time = 1026.488
+Original:
+even then, if she took one step forward he could catch her
+Decoded:
+['IY', 'V', 'IH', 'N', ' ', 'DH', 'AE', 'N', ' ', 'IH', 'F', ' ', 'Y', 'IY', ' ', 'T', 'UW', ' ', 'W', 'AH', 'N', 'S', 'T', 'EH', 'P', ' ', 'F', 'AO', ' ', 'HH', 'IY', ' ', 'K', 'UH', ' ', 'K', 'AE', 'CH', ' ', 'ER']
+Note: Could sounds like "Cou" in the audio, which is positive since the detection only caught the "K UH"
+
 ## TODO:
 (try with more than 1 layer next time, perhaps 4?)
 train on individual words (use master corpus?)
