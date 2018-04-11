@@ -49,13 +49,24 @@ tensorboard --logdir=./log/ctc
 ```
 
 ## Training Notes
-- after 30 hours of training on the TIMIT and appspot word data, speech recognition:
-Epoch 111/200, train_cost = 27.383, train_ler = 0.204, val_cost = 38.645, val_ler = 0.229, time = 1026.488
-Original:
-even then, if she took one step forward he could catch her
-Decoded:
-['IY', 'V', 'IH', 'N', ' ', 'DH', 'AE', 'N', ' ', 'IH', 'F', ' ', 'Y', 'IY', ' ', 'T', 'UW', ' ', 'W', 'AH', 'N', 'S', 'T', 'EH', 'P', ' ', 'F', 'AO', ' ', 'HH', 'IY', ' ', 'K', 'UH', ' ', 'K', 'AE', 'CH', ' ', 'ER']
-Note: Could sounds like "Cou" in the audio, which is positive since the detection only caught the "K UH"
+- After 30 hours of training on the TIMIT and appspot word data, using AdamOptimizer, no gradient clipping,  dropout, and the following hyperparameters:
+    "FEATURES": 13,
+    "CLASSES": 41,
+    "HIDDEN": 256,
+    "LAYERS": 1,
+    "BATCH_SIZE": 32,
+    "INITIAL_LEARNING_RATE": 0.001,
+    "MOMENTUM": 0.9
+
+  Results are as follows:
+  Epoch 111/200, train_cost = 27.383, train_ler = 0.204, val_cost = 38.645, val_ler = 0.229, time = 1026.488
+  Original:
+  even then, if she took one step forward he could catch her
+  Decoded:
+  ['IY', 'V', 'IH', 'N', ' ', 'DH', 'AE', 'N', ' ', 'IH', 'F', ' ', 'Y', 'IY', ' ', 'T', 'UW', ' ', 'W', 'AH', 'N', 'S', 'T', 'EH', 'P', ' ', 'F', 'AO', ' ', 'HH', 'IY', ' ', 'K', 'UH', ' ', 'K', 'AE', 'CH', ' ', 'ER']
+  Note: Could sounds like "Cou" in the audio, which is positive since the detection only caught the "K UH"
+
+
 
 ## TODO:
 (try with more than 1 layer next time, perhaps 4?)
