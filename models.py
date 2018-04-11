@@ -40,6 +40,8 @@ def create_model(model_architecture, model_inputs, is_training):
         return create_ctc_model(model_inputs, is_training)
     elif model_architecture == 'bdlstm':
         return create_bdlstm_model(model_inputs, is_training)
+    elif model_architecture == 'single_fc':
+        return create_single_fc_model(model_inputs, is_training)
     else:
         raise Exception('model_architecture argument "' + model_architecture +
                     '" not recognized, should be one of "ctc", "lstm",...')
@@ -53,6 +55,64 @@ def load_variables_from_checkpoint(sess, start_checkpoint):
     """
     saver = tf.train.Saver(tf.global_variables())
     saver.restore(sess, start_checkpoint)
+
+
+def create_single_fc_model(model_inputs, is_training):
+    """Builds a model with a single hidden fully-connected layer.
+    This is a very simple model with just one matmul and bias layer. As you'd
+    expect, it doesn't produce very accurate results, but it is very fast and
+    simple, so it's useful for sanity testing.
+    Here's the layout of the graph:
+    (mfcc input)
+        v
+    [MatMul]<-(weights)
+        v
+    [BiasAdd]<-(bias)
+    Args:
+        fingerprint_input: TensorFlow node that will output audio feature vectors.
+        model_settings: Dictionary of information about the model.
+        is_training: Whether the model is going to be used for training.
+    Returns:
+        TensorFlow node outputting logits results, and optionally a dropout
+        placeholder.
+    """
+    if is_training:
+        dropout_prob = tf.placeholder(tf.float32, name='dropout_prob')
+        # Add dropout for W
+        # keep_prob = tf.placeholder(tf.float32)
+        # dropout_prob = tf.nn.dropout(W, keep_prob)
+
+    inputs, targets, seq_len = model_inputs
+
+    # Inputs shape
+    input_shape = tf.shape(inputs)
+
+    # Get shape; max_timesteps not used but cool to know (i guess... probably remove later)
+    batch_size, max_timesteps = input_shape[0], input_shape[1]
+
+    # reshape inputs
+    inputs = tf.reshape(inputs, [-1, num_hidden])
+
+    # Truncated normal with mean 0 and stdev=0.1
+    # Tip: Try another initialization
+    # see https://www.tensorflow.org/versions/r0.9/api_docs/python/contrib.layers.html#initializers
+    W = tf.Variable(tf.truncated_normal([num_hidden, num_classes], stddev=0.1))
+    # Zero initialization
+    b = tf.Variable(tf.constant(0., shape=[num_classes]))
+
+    # Doing the affine projection
+    logits = tf.matmul(inputs, W) + b
+
+    # Reshaping back to the original shape
+    logits = tf.reshape(logits, [batch_size, -1, num_classes])
+
+    # Time major
+    logits = tf.transpose(logits, (1, 0, 2))
+
+    if is_training:
+        return logits, dropout_prob
+    else:
+        return logits
 
 
 def create_ctc_model(model_inputs, is_training):
@@ -74,8 +134,17 @@ def create_ctc_model(model_inputs, is_training):
     # Stacking rnn cells
     stack = tf.contrib.rnn.MultiRNNCell([cell] * num_layers, state_is_tuple=True)
 
+    # LAYERS ISSUE CRAPPING OUT on this dynamic_rnn call (building model)
     # The second output is the last state and we will not use that
+    # Notes on # layer issue:
+    # NUM LAYERS DOESNT AFFECT ANYTHING
+    # Error Log
+    # Dimensions must be equal, but are 512 and 269 for 'rnn/while/rnn/multi_rnn_cell/cell_0/lstm_cell/MatMul_1'
+    # (op: 'MatMul') with input shapes: [?,512], [269,1024].
+    # [?, 2*num_hidden], [num_features+num_hidden, 4* num_hidden]
+    # layers issue breaking here
     outputs, _ = tf.nn.dynamic_rnn(stack, inputs, seq_len, dtype=tf.float32)
+
 
     # Inputs shape
     input_shape = tf.shape(inputs)
@@ -136,17 +205,23 @@ def create_bdlstm_model(model_inputs, is_training):
     forward_cell = tf.nn.rnn_cell.LSTMCell(num_hidden, use_peepholes=True, state_is_tuple=True)
     backward_cell = tf.nn.rnn_cell.LSTMCell(num_hidden, use_peepholes=True, state_is_tuple=True)
 
-    stack_forward_cell = tf.nn.rnn_cell.MultiRNNCell([forward_cell] * num_layers,
-                                                     state_is_tuple=True)
-    stack_backward_cell = tf.nn.rnn_cell.MultiRNNCell([backward_cell] * num_layers,
-                                                      state_is_tuple=True)
+    stack_forward_cell = tf.nn.rnn_cell.MultiRNNCell([forward_cell] * num_layers, state_is_tuple=True)
+    stack_backward_cell = tf.nn.rnn_cell.MultiRNNCell([backward_cell] * num_layers, state_is_tuple=True)
 
-    outputs, _ = tf.nn.bidirectional_dynamic_rnn(stack_forward_cell,
-                                                 stack_backward_cell,
-                                                 inputs,
-                                                 sequence_length=seq_len,
-                                                 time_major=False, # [batch_size, max_time, num_hidden]
-                                                 dtype=tf.float32)
+    # Notes on # layer issue:
+    # NUM LAYERS DOESNT AFFECT ANYTHING
+    # Error Log
+    # Dimensions must be equal, but are 512 and 269 for 'rnn/while/rnn/multi_rnn_cell/cell_0/lstm_cell/MatMul_1'
+    # (op: 'MatMul') with input shapes: [?,512], [269,1024].
+    # [?, 2*num_hidden], [num_features+num_hidden, 4* num_hidden]
+    # layers issue breaking here
+    outputs, _ = tf.nn.bidirectional_dynamic_rnn(
+        stack_forward_cell,
+        stack_backward_cell,
+        inputs,
+        sequence_length=seq_len,
+        time_major=False, # [batch_size, max_time, num_hidden]
+        dtype=tf.float32)
 
     # Inputs shape
     input_shape = tf.shape(inputs)
@@ -162,6 +237,8 @@ def create_bdlstm_model(model_inputs, is_training):
     bw_output = tf.reshape(outputs[1], [-1, num_hidden])
     logits = tf.add(tf.add(tf.matmul(fw_output, W), tf.matmul(bw_output, W)), b)
 
+
+
     # Reshaping back to the original shape
     logits = tf.reshape(logits, [batch_size, -1, num_classes])
 
@@ -172,4 +249,3 @@ def create_bdlstm_model(model_inputs, is_training):
         return logits, dropout_prob
     else:
         return logits
-        

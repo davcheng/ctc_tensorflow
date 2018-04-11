@@ -56,7 +56,8 @@ num_batches_per_epoch = int(num_examples/batch_size)
 TRAIN_FILES_DIR = './timit_raw'
 TEST_FILES_DIR = './timit_raw'
 
-MODEL_ARCHITECTURE = 'bdlstm'
+# MODEL_ARCHITECTURE = 'bdlstm'
+MODEL_ARCHITECTURE = 'single_fc'
 
 #########
 # PREPARE TEST DATA
@@ -95,30 +96,31 @@ def main(_):
         inputs = tf.placeholder(tf.float32, [None, None, num_features], name='inputs')
         # create SparseTensor required by ctc_loss op.
         targets = tf.sparse_placeholder(tf.int32, name='target_data')
+        # PERHAPS KEY TO NUMBER OF LAYERS ERROR?????
+        # targets_idx = tf.placeholder(tf.int64)
+        # targets_val = tf.placeholder(tf.int32)
+        # targets_shape = tf.placeholder(tf.int64)
+        # targets = tf.SparseTensor(targets_idx, targets_val, targets_shape)
         # create 1d array of size [batch_size]
         seq_len = tf.placeholder(tf.int32, [None], name="seq_len")
-        # passing in model inputs
-        model_inputs = inputs, targets, seq_len
 
         # Create the model
+        # passing in model inputs
+        model_inputs = inputs, targets, seq_len
         # Abstracted Model architecture to models.py
-        # options are 'ctc'
-        # logits, dropout_prob = models.create_model(model_architecture='ctc', model_inputs=model_inputs, is_training=True)
         logits, dropout_prob = models.create_model(model_architecture=MODEL_ARCHITECTURE, model_inputs=model_inputs, is_training=True)
 
         # Define loss and optimizer
         # ctc cost function
         loss = tf.nn.ctc_loss(targets, logits, seq_len)
         cost = tf.reduce_mean(loss)
-
         # # Gradient clipping
         # tvars = tf.trainable_variables()
         # grads = tf.gradients(cost, tvars)
         # grad_norm = tf.global_norm(grads, name='grads')
         # grads, _ = tf.clip_by_global_norm(grads, 2, use_norm=grad_norm)
         # grads = list(zip(grads, tvars))
-
-        # Adam optimizer converges on solution faster than Momentum but is slower to train for each step
+        # # Adam optimizer converges on solution faster than Momentum but is slower to train for each step
         optimizer = tf.train.AdamOptimizer(learning_rate=initial_learning_rate).minimize(cost)
         # optimizer = tf.train.MomentumOptimizer(initial_learning_rate, 0.9).minimize(cost)
 
@@ -138,7 +140,7 @@ def main(_):
         # Create a summary to monitor cost tensor
         summary_loss = tf.summary.scalar("loss", cost)
         # Create a summary to monitor accuracy tensor
-        summary_ler = tf.summary.scalar("ler", ler)
+        summary_ler = tf.summary.scalar("label_error_rate", ler)
 
         # Create summaries to visualize weights
         for var in tf.trainable_variables():
