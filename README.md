@@ -89,8 +89,12 @@ train on individual words (use master corpus?)
 - [X] Complete  label.py
 - [ ] Make train use batches for testing [see ex] (https://github.com/philipperemy/tensorflow-ctc-speech-recognition/blob/master/ctc_tensorflow_example.py)
 - [X] Refactor out model into models.py
-- [ ] Accomodate more than 1 layer
+- [X] Accomodate more than 1 layer (SOLVED, for now: num_features must equal num_hidden_layers; otherwise only 1 layer works; [2*num_hidden] == [num_features+num_hidden]); https://github.com/tensorflow/tensorflow/issues/14897
+- [ ] Fix Single FC layer (maybe this isn't worth fixing...)
 - [ ] Add dropout to improve model architecture
 - [ ] Confusion matrix for phoneme performance evaluation
-- [ ] Train model with words outside of the TIMIT set
+- [X] Train model with TIMIT
+- [X] Train model with TIMIT and Appspot words
+- [ ] Train model with TIMIT and Appspot words and verified extracted
+- [ ] Train model with TIMIT and Appspot words and verified extracted and master corpus
 - [ ] GPU implementation [(see docs)](https://www.tensorflow.org/programmers_guide/using_gpu)
