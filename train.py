@@ -27,6 +27,7 @@ from utils import pad_sequences as pad_sequences
 from utils import preprocess_file as preprocess_file
 from utils import load_batch_data as load_batch_data
 
+
 from phoneme_model import phoneme_dict
 from constants import c
 import models
@@ -57,7 +58,7 @@ TRAIN_FILES_DIR = './timit_raw'
 TEST_FILES_DIR = './timit_raw'
 
 # MODEL_ARCHITECTURE = 'bdlstm'
-MODEL_ARCHITECTURE = 'single_fc'
+MODEL_ARCHITECTURE = 'ctc'
 
 #########
 # PREPARE TEST DATA

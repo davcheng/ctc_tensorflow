@@ -11,6 +11,8 @@ import tensorflow as tf
 import numpy as np
 from constants import c
 
+from utils import get_a_cell as get_a_cell
+
 # Hyperparameters
 # moved to conf.json, served with constants.py
 num_features = c.CTC.FEATURES
@@ -21,6 +23,7 @@ num_layers = c.CTC.LAYERS # only works with one... gets a dimension error that i
 batch_size = c.CTC.BATCH_SIZE
 initial_learning_rate = c.CTC.INITIAL_LEARNING_RATE
 momentum = c.CTC.MOMENTUM
+keep_prob = 1.0 # move to conf.json if this is worth anything
 
 
 def create_model(model_architecture, model_inputs, is_training):
@@ -63,11 +66,13 @@ def create_single_fc_model(model_inputs, is_training):
     expect, it doesn't produce very accurate results, but it is very fast and
     simple, so it's useful for sanity testing.
     Here's the layout of the graph:
+
     (mfcc input)
         v
     [MatMul]<-(weights)
         v
     [BiasAdd]<-(bias)
+
     Args:
         fingerprint_input: TensorFlow node that will output audio feature vectors.
         model_settings: Dictionary of information about the model.
@@ -75,6 +80,11 @@ def create_single_fc_model(model_inputs, is_training):
     Returns:
         TensorFlow node outputting logits results, and optionally a dropout
         placeholder.
+
+    NOTE: NOT WORKING
+    ERROR LOG
+    InvalidArgumentError (see above for traceback): Input to reshape is a tensor with 168480 values, but the requested shape requires a multiple of 256
+	 [[Node: Reshape = Reshape[T=DT_FLOAT, Tshape=DT_INT32, _device="/job:localhost/replica:0/task:0/device:CPU:0"](_arg_inputs_0_0, Reshape/shape)]]
     """
     if is_training:
         dropout_prob = tf.placeholder(tf.float32, name='dropout_prob')
@@ -132,7 +142,11 @@ def create_ctc_model(model_inputs, is_training):
     cell = tf.contrib.rnn.LSTMCell(num_hidden, state_is_tuple=True)
 
     # Stacking rnn cells
-    stack = tf.contrib.rnn.MultiRNNCell([cell] * num_layers, state_is_tuple=True)
+    # MultiRNNCell has an issue in Tensorflow 1.4 so this line below doesnt work if layers>1, use line below that instead (uses get_a_cell hack placed in utils.py)
+    if num_layers>1:
+        stack = tf.contrib.rnn.MultiRNNCell([cell] * num_layers, state_is_tuple=True)
+    else:
+        stack = tf.contrib.rnn.MultiRNNCell([get_a_cell(num_hidden, keep_prob) for _ in range(num_layers)], state_is_tuple=True)
 
     # LAYERS ISSUE CRAPPING OUT on this dynamic_rnn call (building model)
     # The second output is the last state and we will not use that
@@ -143,7 +157,8 @@ def create_ctc_model(model_inputs, is_training):
     # (op: 'MatMul') with input shapes: [?,512], [269,1024].
     # [?, 2*num_hidden], [num_features+num_hidden, 4* num_hidden]
     # layers issue breaking here
-    outputs, _ = tf.nn.dynamic_rnn(stack, inputs, seq_len, dtype=tf.float32)
+    # https://github.com/tensorflow/tensorflow/issues/14897
+    outputs, _ = tf.nn.dynamic_rnn(stack, inputs, seq_len, dtype=tf.float32,  time_major=False)
 
 
     # Inputs shape

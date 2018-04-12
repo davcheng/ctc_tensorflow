@@ -9,13 +9,16 @@ import sys
 import numpy as np
 import re
 import scipy.io.wavfile as wav
-from phoneme_model import phoneme_dict
+
+import tensorflow as tf
 
 try:
     from python_speech_features import mfcc
 except ImportError:
     print("Failed to import python_speech_features.\n Try pip install python_speech_features.")
     raise ImportError
+
+from phoneme_model import phoneme_dict
 
 # loops through folder of wavs and .txt targets
 def load_batch_data(input_path):
@@ -287,3 +290,10 @@ def preprocess_text(text):
     # 17  1 28  1  0 18  8 30  0 18  9 36 15  0  9 16  0 19  2 17]
     targets = np.asarray([SPACE_INDEX if x == SPACE_TOKEN else index_phone[x] for x in targets])
     return targets
+
+# from https://github.com/tensorflow/tensorflow/issues/14897
+# used to fix error with multiRNNcell bug with tensorflow 1.4
+def get_a_cell(lstm_size, keep_prob):
+    lstm = tf.nn.rnn_cell.BasicLSTMCell(lstm_size)
+    drop = tf.nn.rnn_cell.DropoutWrapper(lstm, output_keep_prob=keep_prob)
+    return drop
