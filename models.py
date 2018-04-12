@@ -11,14 +11,14 @@ import tensorflow as tf
 import numpy as np
 from constants import c
 
-from utils import get_a_cell as get_a_cell
+from utils import lstm_cell as lstm_cell
 
 # Hyperparameters
 # moved to conf.json, served with constants.py
 num_features = c.CTC.FEATURES
 # 39 phones + space + blank label (needed for CTC) = 41 classes
 num_classes = c.CTC.CLASSES
-num_hidden = c.CTC.HIDDEN # 32 default
+num_hidden = c.CTC.HIDDEN # number/size of hidden layers; 32 default
 num_layers = c.CTC.LAYERS # only works with one... gets a dimension error that is a product of num hidden
 batch_size = c.CTC.BATCH_SIZE
 initial_learning_rate = c.CTC.INITIAL_LEARNING_RATE
@@ -142,11 +142,12 @@ def create_ctc_model(model_inputs, is_training):
     cell = tf.contrib.rnn.LSTMCell(num_hidden, state_is_tuple=True)
 
     # Stacking rnn cells
-    # MultiRNNCell has an issue in Tensorflow 1.4 so this line below doesnt work if layers>1, use line below that instead (uses get_a_cell hack placed in utils.py)
-    if num_layers>1:
+    # MultiRNNCell has an issue in Tensorflow 1.4 so this line below doesnt work if layers>1, use line below that instead (uses lstm_cell hack placed in utils.py)
+    if num_layers == 1:
         stack = tf.contrib.rnn.MultiRNNCell([cell] * num_layers, state_is_tuple=True)
     else:
-        stack = tf.contrib.rnn.MultiRNNCell([get_a_cell(num_hidden, keep_prob) for _ in range(num_layers)], state_is_tuple=True)
+        stack = tf.contrib.rnn.MultiRNNCell([lstm_cell(num_hidden, keep_prob) for _ in range(num_layers)], state_is_tuple=True)
+
 
     # LAYERS ISSUE CRAPPING OUT on this dynamic_rnn call (building model)
     # The second output is the last state and we will not use that
@@ -158,6 +159,7 @@ def create_ctc_model(model_inputs, is_training):
     # [?, 2*num_hidden], [num_features+num_hidden, 4* num_hidden]
     # layers issue breaking here
     # https://github.com/tensorflow/tensorflow/issues/14897
+    # https://stackoverflow.com/questions/48865554/using-dynamic-rnn-with-multirnn-gives-error/49066981#49066981
     outputs, _ = tf.nn.dynamic_rnn(stack, inputs, seq_len, dtype=tf.float32,  time_major=False)
 
 
@@ -172,9 +174,9 @@ def create_ctc_model(model_inputs, is_training):
     # Truncated normal with mean 0 and stdev=0.1
     # Tip: Try another initialization
     # see https://www.tensorflow.org/versions/r0.9/api_docs/python/contrib.layers.html#initializers
-    W = tf.Variable(tf.truncated_normal([num_hidden, num_classes], stddev=0.1))
+    W = tf.Variable(tf.truncated_normal([num_hidden, num_classes], stddev=0.1), name='weights')
     # Zero initialization
-    b = tf.Variable(tf.constant(0., shape=[num_classes]))
+    b = tf.Variable(tf.constant(0., shape=[num_classes]), name='bias')
 
     # Add dropout for W
     # keep_prob = tf.placeholder(tf.float32)

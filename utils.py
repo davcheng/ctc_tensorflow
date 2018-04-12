@@ -292,8 +292,8 @@ def preprocess_text(text):
     return targets
 
 # from https://github.com/tensorflow/tensorflow/issues/14897
+# https://github.com/tensorflow/tensorflow/issues/16186
 # used to fix error with multiRNNcell bug with tensorflow 1.4
-def get_a_cell(lstm_size, keep_prob):
-    lstm = tf.nn.rnn_cell.BasicLSTMCell(lstm_size)
-    drop = tf.nn.rnn_cell.DropoutWrapper(lstm, output_keep_prob=keep_prob)
-    return drop
+def lstm_cell(num_hidden, keep_prob):
+    lstm = tf.contrib.rnn.BasicLSTMCell(num_hidden, forget_bias=keep_prob)
+    return lstm
