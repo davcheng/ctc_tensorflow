@@ -15,15 +15,15 @@ from utils import lstm_cell as lstm_cell
 
 # Hyperparameters
 # moved to conf.json, served with constants.py
-num_features = c.CTC.FEATURES
+num_features = c.HYPERPARAMETERS.FEATURES
 # 39 phones + space + blank label (needed for CTC) = 41 classes
-num_classes = c.CTC.CLASSES
-num_hidden = c.CTC.HIDDEN # number/size of hidden layers; 32 default
-num_layers = c.CTC.LAYERS # only works with one... gets a dimension error that is a product of num hidden
-batch_size = c.CTC.BATCH_SIZE
-initial_learning_rate = c.CTC.INITIAL_LEARNING_RATE
-momentum = c.CTC.MOMENTUM
-keep_prob = 1.0 # move to conf.json if this is worth anything
+num_classes = c.HYPERPARAMETERS.CLASSES
+num_hidden = c.HYPERPARAMETERS.HIDDEN # number/size of hidden layers; 32 default
+num_layers = c.HYPERPARAMETERS.LAYERS # only works with one... gets a dimension error that is a product of num hidden
+batch_size = c.HYPERPARAMETERS.BATCH_SIZE
+initial_learning_rate = c.HYPERPARAMETERS.INITIAL_LEARNING_RATE
+momentum = c.HYPERPARAMETERS.MOMENTUM
+keep_prob = c.HYPERPARAMETERS.KEEP_PROB # move to conf.json if this is worth anything
 
 
 def create_model(model_architecture, model_inputs, is_training):
@@ -148,18 +148,7 @@ def create_ctc_model(model_inputs, is_training):
     else:
         stack = tf.contrib.rnn.MultiRNNCell([lstm_cell(num_hidden, keep_prob) for _ in range(num_layers)], state_is_tuple=True)
 
-
-    # LAYERS ISSUE CRAPPING OUT on this dynamic_rnn call (building model)
-    # The second output is the last state and we will not use that
-    # Notes on # layer issue:
-    # NUM LAYERS DOESNT AFFECT ANYTHING
-    # Error Log
-    # Dimensions must be equal, but are 512 and 269 for 'rnn/while/rnn/multi_rnn_cell/cell_0/lstm_cell/MatMul_1'
-    # (op: 'MatMul') with input shapes: [?,512], [269,1024].
-    # [?, 2*num_hidden], [num_features+num_hidden, 4* num_hidden]
-    # layers issue breaking here
-    # https://github.com/tensorflow/tensorflow/issues/14897
-    # https://stackoverflow.com/questions/48865554/using-dynamic-rnn-with-multirnn-gives-error/49066981#49066981
+    # build dynamic rnn
     outputs, _ = tf.nn.dynamic_rnn(stack, inputs, seq_len, dtype=tf.float32,  time_major=False)
 
 
@@ -221,17 +210,21 @@ def create_bdlstm_model(model_inputs, is_training):
     # Network
     forward_cell = tf.nn.rnn_cell.LSTMCell(num_hidden, use_peepholes=True, state_is_tuple=True)
     backward_cell = tf.nn.rnn_cell.LSTMCell(num_hidden, use_peepholes=True, state_is_tuple=True)
+    # forward_cell = tf.contrib.rnn.BasicLSTMCell(num_hidden, use_peepholes=True, state_is_tuple=True)
+    # backward_cell = tf.contrib.rnn.BasicLSTMCell(num_hidden, use_peepholes=True, state_is_tuple=True)
 
-    stack_forward_cell = tf.nn.rnn_cell.MultiRNNCell([forward_cell] * num_layers, state_is_tuple=True)
-    stack_backward_cell = tf.nn.rnn_cell.MultiRNNCell([backward_cell] * num_layers, state_is_tuple=True)
+    # Stacking rnn cells
+    # MultiRNNCell has an issue in Tensorflow 1.4 so this line below doesnt work if layers>1, use line below that instead (uses lstm_cell hack placed in utils.py)
+    if num_layers == 1:
+        stack_forward_cell = tf.contrib.rnn.MultiRNNCell([forward_cell] * num_layers, state_is_tuple=True)
+        stack_backward_cell = tf.contrib.rnn.MultiRNNCell([backward_cell] * num_layers, state_is_tuple=True)
+    else:
+        stack_forward_cell = tf.contrib.rnn.MultiRNNCell([lstm_cell(num_hidden, keep_prob) for _ in range(num_layers)], state_is_tuple=True)
+        stack_backward_cell = tf.contrib.rnn.MultiRNNCell([lstm_cell(num_hidden, keep_prob) for _ in range(num_layers)], state_is_tuple=True)
 
-    # Notes on # layer issue:
-    # NUM LAYERS DOESNT AFFECT ANYTHING
-    # Error Log
-    # Dimensions must be equal, but are 512 and 269 for 'rnn/while/rnn/multi_rnn_cell/cell_0/lstm_cell/MatMul_1'
-    # (op: 'MatMul') with input shapes: [?,512], [269,1024].
-    # [?, 2*num_hidden], [num_features+num_hidden, 4* num_hidden]
-    # layers issue breaking here
+    # rnn vs dynamic_rnn: rnn takes static inputs (200 time steps, can't pass in more than originally specified)
+    # tf.nn.dynamic_rnn solves this. It uses a tf.While loop to dynamically construct the graph when it is executed. That means graph creation is faster and you can feed batches of variable size.
+    # Source: https://stackoverflow.com/questions/39734146/whats-the-difference-between-tensorflow-dynamic-rnn-and-rnn
     outputs, _ = tf.nn.bidirectional_dynamic_rnn(
         stack_forward_cell,
         stack_backward_cell,
@@ -253,8 +246,6 @@ def create_bdlstm_model(model_inputs, is_training):
     fw_output = tf.reshape(outputs[0], [-1, num_hidden])
     bw_output = tf.reshape(outputs[1], [-1, num_hidden])
     logits = tf.add(tf.add(tf.matmul(fw_output, W), tf.matmul(bw_output, W)), b)
-
-
 
     # Reshaping back to the original shape
     logits = tf.reshape(logits, [batch_size, -1, num_classes])

@@ -35,14 +35,17 @@ import models
 
 # Hyperparameters
 # moved to conf.json, served with constants.py
-num_features = c.CTC.FEATURES
+num_features = c.HYPERPARAMETERS.FEATURES
 # 39 phones + space + blank label (needed for CTC) = 41 classes
-num_classes = c.CTC.CLASSES
-num_hidden = c.CTC.HIDDEN # 32 default
-num_layers = c.CTC.LAYERS # only works with one... gets a dimension error that is a product of num hidden
-batch_size = c.CTC.BATCH_SIZE
-initial_learning_rate = c.CTC.INITIAL_LEARNING_RATE
-momentum = c.CTC.MOMENTUM
+num_classes = c.HYPERPARAMETERS.CLASSES
+num_hidden = c.HYPERPARAMETERS.HIDDEN # 32 default
+num_layers = c.HYPERPARAMETERS.LAYERS # only works with one... gets a dimension error that is a product of num hidden
+batch_size = c.HYPERPARAMETERS.BATCH_SIZE
+initial_learning_rate = c.HYPERPARAMETERS.INITIAL_LEARNING_RATE
+momentum = c.HYPERPARAMETERS.MOMENTUM
+
+# MODEL_ARCHITECTURE = 'bdlstm'
+MODEL_ARCHITECTURE = c.HYPERPARAMETERS.MODEL_ARCHITECTURE
 
 # used to translate phones into indices
 phone_index = {1: 'IY', 2: 'IH', 3: 'EH', 4: 'AE', 5: 'AH', 6: 'UW', 7: 'UH', 8: 'AA', 9: 'AO', 10: 'EY', 11: 'AY', 12: 'OY', 13: 'AW', 14: 'OW', 15: 'ER', 16: 'L', 17: 'R', 18: 'W', 19: 'Y', 20: 'M', 21: 'N', 22: 'NG', 23: 'V', 24: 'F', 25: 'DH', 26: 'TH', 27: 'Z', 28: 'S', 29: 'ZH', 30: 'SH', 31: 'JH', 32: 'CH', 33: 'B', 34: 'P', 35: 'D', 36: 'T', 37: 'G', 38: 'K', 39: 'HH',' ': ' '}
@@ -56,9 +59,6 @@ num_batches_per_epoch = int(num_examples/batch_size)
 # note, remember to strip excess headers from TIMIT wavs using directory_audio_converter.sh
 TRAIN_FILES_DIR = './timit_raw'
 TEST_FILES_DIR = './timit_raw'
-
-# MODEL_ARCHITECTURE = 'bdlstm'
-MODEL_ARCHITECTURE = 'ctc'
 
 #########
 # PREPARE TEST DATA
@@ -171,13 +171,13 @@ def main(_):
             print("tf.train.Saver() broken in tensorflow 0.12")
             saver = tf.train.Saver(tf.global_variables())
 
-        ckpt = tf.train.get_checkpoint_state('./ctc_checkpoints')
+        ckpt = tf.train.get_checkpoint_state('./%s_checkpoints' % MODEL_ARCHITECTURE)
 
         print('done with try except block')
         start = 0
         if ckpt and ckpt.model_checkpoint_path:
             print('begin ckpt')
-            p = re.compile('\./ctc_checkpoints/model\.ckpt-([0-9]+)')
+            p = re.compile('\./%s_checkpoints/model\.ckpt-([0-9]+)' % MODEL_ARCHITECTURE)
             m = p.match(ckpt.model_checkpoint_path)
             try:
                 start = int(m.group(1))
@@ -185,7 +185,7 @@ def main(_):
                 pass
         if saver and start > 0:
             # Restore variables from disk.
-            saver.restore(session, "./ctc_checkpoints/model.ckpt-%d" % start)
+            saver.restore(session, "./%s_checkpoints/model.ckpt-%d" % (MODEL_ARCHITECTURE, start))
             print("Model %d restored." % start)
         else:
             # Initialize the weights and biases
@@ -263,12 +263,11 @@ def main(_):
                              val_cost, val_ler, time.time() - start))
 
             # check to make sure using default graph so that saver works
-            print('check graph')
-            print(logits.graph == tf.get_default_graph())
+            print('check graph exists')
             if saver:
                 # saver.save(session, 'ctc_checkpoints/%s/model.ckpt', global_step=curr_epoch + 1 % str(date.today()))
-                saver.save(session, 'ctc_checkpoints/model.ckpt', global_step=curr_epoch + 1)
-                tf.logging.info('saved to ctc_checkpoints/model for epoch: %i' % curr_epoch)
+                saver.save(session, '%s_checkpoints/model.ckpt' % MODEL_ARCHITECTURE, global_step=curr_epoch + 1)
+                tf.logging.info('saved to %s_checkpoints/model for epoch: %i' % (MODEL_ARCHITECTURE, curr_epoch))
 
             # Decoding
             # decoded is a tf variable
