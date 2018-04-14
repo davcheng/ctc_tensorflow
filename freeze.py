@@ -9,6 +9,7 @@ import sys
 import tensorflow as tf
 from tensorflow.python.ops import ctc_ops as ctc
 from constants import c
+import models
 
 # The original freeze_graph function
 # from tensorflow.python.tools.freeze_graph import freeze_graph
@@ -23,15 +24,16 @@ FLAGS = None
 
 dir = os.path.dirname(os.path.realpath(__file__))
 
-## NEED TO BE THE SAME AS train.py
-# Some configs
-num_features = c.CTC.FEATURES
-num_classes = c.CTC.CLASSES
-num_hidden = c.CTC.HIDDEN # 32 default
-num_layers = c.CTC.LAYERS # only works with one... gets a dimension error that is a product of num hidden
-batch_size = c.CTC.BATCH_SIZE
-initial_learning_rate = c.CTC.INITIAL_LEARNING_RATE
-momentum = c.CTC.MOMENTUM
+num_features = c.HYPERPARAMETERS.FEATURES
+num_classes = c.HYPERPARAMETERS.CLASSES
+num_hidden = c.HYPERPARAMETERS.HIDDEN # 32 default
+num_layers = c.HYPERPARAMETERS.LAYERS # only works with one... gets a dimension error that is a product of num hidden
+batch_size = c.HYPERPARAMETERS.BATCH_SIZE
+initial_learning_rate = c.HYPERPARAMETERS.INITIAL_LEARNING_RATE
+momentum = c.HYPERPARAMETERS.MOMENTUM
+
+# MODEL_ARCHITECTURE = 'bdlstm'
+MODEL_ARCHITECTURE = c.HYPERPARAMETERS.MODEL_ARCHITECTURE
 
 # Construct the graph; should be exported to models.py
 def create_inference_graph():
@@ -44,32 +46,12 @@ def create_inference_graph():
     # create 1d array of size [batch_size]
     seq_len = tf.placeholder(tf.int32, [None], name="seq_len")
 
-    # Define the cell
-    # Can be:
-    #   tf.nn.rnn_cell.RNNCell
-    #   tf.nn.rnn_cell.GRUCell
-    cell = tf.contrib.rnn.LSTMCell(num_hidden, state_is_tuple=True)
-    # Stacking rnn cells
-    stack = tf.contrib.rnn.MultiRNNCell([cell] * num_layers, state_is_tuple=True)
-    # The second output is the last state and we will not use that
-    outputs, _ = tf.nn.dynamic_rnn(stack, inputs, seq_len, dtype=tf.float32, time_major=False)
-    shape = tf.shape(inputs)
-    batch_s, max_timesteps = shape[0], shape[1]
-    # Reshaping to apply the same weights over the timesteps
-    outputs = tf.reshape(outputs, [-1, num_hidden])
 
-    # Truncated normal with mean 0 and stdev=0.1
-    # Tip: Try another initialization
-    # see https://www.tensorflow.org/versions/r0.9/api_docs/python/contrib.layers.html#initializers
-    W = tf.Variable(tf.truncated_normal([num_hidden, num_classes], stddev=0.1))
-    b = tf.Variable(tf.constant(0., shape=[num_classes]))
-
-    # Doing the affine projection
-    logits = tf.matmul(outputs, W) + b
-    # Reshaping back to the original shape
-    logits = tf.reshape(logits, [batch_s, -1, num_classes])
-    # Time major
-    logits = tf.transpose(logits, (1, 0, 2))
+    # Create the model
+    # passing in model inputs
+    model_inputs = inputs, targets, seq_len
+    # Abstracted Model architecture to models.py
+    logits = models.create_model(model_architecture=MODEL_ARCHITECTURE, model_inputs=model_inputs, is_training=False)
 
     # This is where the CTC magic happens!
     # second output is log_probability, which we don't need
