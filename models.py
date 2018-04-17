@@ -187,7 +187,7 @@ def create_ctc_model(model_inputs, is_training):
         return logits
 
 def create_bdlstm_model(model_inputs, is_training):
-    """ Builds a CTC model
+    """ Builds a bdlstm model
     The model is created by bidirectional dynamic rnn with three stacked lstms in each direction.
     http://www.cs.toronto.edu/~graves/icml_2006.pdf
     https://github.com/tbornt/phoneme_ctc/blob/master/train.py
@@ -204,8 +204,8 @@ def create_bdlstm_model(model_inputs, is_training):
     # Weights & biases
     # W = tf.Variable(tf.truncated_normal([num_hidden, num_classes], mean=0, stddev=0.1, dtype=tf.float32))
     # b = tf.Variable(tf.zeros([num_classes]), dtype=tf.float32)
-    W = tf.Variable(tf.truncated_normal([num_hidden, num_classes], stddev=0.1))
-    b = tf.Variable(tf.constant(0., shape=[num_classes]))
+    W = tf.Variable(tf.truncated_normal([num_hidden, num_classes], stddev=0.1), name='weights')
+    b = tf.Variable(tf.constant(0., shape=[num_classes]), name='bias')
 
     # Network
     forward_cell = tf.nn.rnn_cell.LSTMCell(num_hidden, use_peepholes=True, state_is_tuple=True)

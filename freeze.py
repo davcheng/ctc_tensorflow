@@ -112,11 +112,11 @@ def main(_):
             frozen_graph_def,
             # sess.graph_def,
             os.path.dirname(FLAGS.model_dir),
-            os.path.basename(FLAGS.output_file),
+            os.path.basename(FLAGS.frozen_graph_path),
             as_text=False)
 
         # Log
-        tf.logging.info('Saved frozen graph to %s', FLAGS.output_file)
+        tf.logging.info('Saved frozen graph to %s', FLAGS.frozen_graph_path)
 
 
 if __name__ == '__main__':
@@ -133,7 +133,7 @@ if __name__ == '__main__':
         default="SparseToDense",
         help="The name of the output nodes, comma separated.")
     parser.add_argument(
-        "--output_file",
+        "--frozen_graph_path",
         type=str,
         default="frozen_graph_20180405.pb",
         help="The name of the output nodes, comma separated.")

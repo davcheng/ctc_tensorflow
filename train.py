@@ -67,8 +67,7 @@ test_audio_filename = './timit_raw/DR1/FCJF0/SI1027.WAV'
 test_target_filename = './timit_raw/DR1/FCJF0/SI1027.TXT'
 
 test_fs, test_audio = wav.read(test_audio_filename)
-test_inputs = mfcc(test_audio, samplerate=test_fs)
-# inputs = mfcc(audio, samplerate=fs, numcep=26) # make 26 features in filterbank
+test_inputs = mfcc(test_audio, samplerate=test_fs) # use numcep(default 13) parameter to change to 26 features in filterbank
 # Tranform in 3D array
 test_inputs = np.asarray(test_inputs[np.newaxis, :])
 batch_test_inputs = (test_inputs - np.mean(test_inputs))/np.std(test_inputs)
