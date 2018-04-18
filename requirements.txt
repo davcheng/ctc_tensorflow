@@ -1,0 +1,5 @@
+tensorflow
+scipy
+numpy
+python_speech_features
+namedtupled
