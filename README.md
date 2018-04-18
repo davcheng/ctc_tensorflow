@@ -1,7 +1,7 @@
 # CTC + Tensorflow
 
 ## Install Requirements
-Create virtualenv
+Create virtualenv (use --python=/usr/bin/python3.5 flag to specify python3 if not defaulted)
 ```
 virtualenv venv
 source venv/bin/activate
@@ -182,6 +182,17 @@ even then, if she took one step forward he could catch her
 Decoded:
 ['IY', ' ', 'Y', 'IH', 'N', ' ', 'M', 'AE', 'N', ' ', 'IH', 'S', 'SH', 'AH', 'T', 'IH', ' ', 'P', 'W', 'AH', 'N', 'S', 'IH', 'F', 'AO', ' ', 'IY', 'K', 'AH', ' ', 'K', 'AE', 'N', 'S', 'AH']
 ```
+(gets right as R AY T; tree as T R IY; fails on uuhhright)
+after night 3...
+```
+Epoch 12/200, train_cost = 3.548, train_ler = 0.103, val_cost = 114.855, val_ler = 0.625, time = 18890.211
+check graph exists
+INFO:tensorflow:saved to bdlstm_checkpoints/model for epoch: 11
+Original:
+even then, if she took one step forward he could catch her
+Decoded:
+['IH', 'CH', 'IY', ' ', 'T', 'IH', ' ', 'P', 'AH', 'S', ' ', 'IH', 'P', ' ', 'F', 'AO', ' ', 'K', 'IY', ' ', 'K', 'AH', ' ', 'K', 'AE', 'N', 'AH']
+```
 
 ## TODO:
 (try with more than 1 layer next time, perhaps 4?)
@@ -198,6 +209,6 @@ train on individual words (use master corpus?)
 - [ ] Confusion matrix for phoneme performance evaluation
 - [X] Train model with TIMIT
 - [X] Train model with TIMIT and Appspot words
-- [ ] Train model with TIMIT and Appspot words and speech commands
+- [X] Train model with TIMIT and Appspot words and speech commands
 - [ ] Train model with TIMIT and Appspot words and verified extracted and master corpus
 - [ ] GPU implementation [(see docs)](https://www.tensorflow.org/programmers_guide/using_gpu)

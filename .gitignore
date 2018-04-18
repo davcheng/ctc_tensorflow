@@ -146,4 +146,8 @@ ENV/
 *.wav
 *.phn
 *.txt
+*.wrd
+!requirements.txt
 tmp/*
+log/
+ctc_checkpoints_39_features/*
